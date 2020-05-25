@@ -6,7 +6,7 @@ debug_mode="false"
 docker_admin="administrator"
 docker_ver="latest"
 containerd_ver="latest"
-data_disk=""
+data_dir=""
 docker_baseurl="https://download.docker.com/linux"
 supported_linux_distro="ubuntu"
 
@@ -20,13 +20,13 @@ while [ "x${1}x" != "xx" ] ; do
 			echo "  -h | --help         shows this documentation"
 			echo "  -D | --debug        run in -ex mode"
 			echo "  -u | --admin        sudoless docker user: ${docker_admin}"
-			echo "  -d | --disk         use an external data disk like /dev/sdb"
+			echo "  -d | --datadir      move /var/lib/docker to dir"
 			echo "  -m | --mirror       repo url: ${docker_baseurl}"
 			echo "  -c | --containerd-version  containerd version: ${containerd_ver}"
 			echo "  -k | --docker-version      docker version: ${docker_ver}"
 			echo ""
 			echo "Example:"
-			echo "  sudo ./install-docker.sh -d /dev/sdb"
+			echo "  sudo ./install-docker.sh -d /storage/ssd"
 			exit 0
 			;;
 		-D | --debug)
@@ -36,9 +36,9 @@ while [ "x${1}x" != "xx" ] ; do
 			shift
 			docker_admin="$1"
 			;;
-		-d | --disk)
+		-d | --datadir)
 			shift
-			data_disk="$1"
+			data_dir="$1"
 			;;
 		-m | --mirror)
 			shift
@@ -53,8 +53,8 @@ while [ "x${1}x" != "xx" ] ; do
 			docker_ver="$1"
 			;;
 		*)
-			echo "fatal! bad_param $1"
-			echo "Usage: $0 [--debug] [--admin <user>] [--disk <device>] [--mirror <url>] [--containerd-version <ver>] [--docker-version <ver>]"
+			echo "FATAL! bad_param $1"
+			echo "Usage: $0 [--debug] [--admin <user>] [--datadir <dir>] [--mirror <url>] [--containerd-version <ver>] [--docker-version <ver>]"
 			exit 1
 			;;
 	esac
@@ -66,7 +66,12 @@ if [ "$debug_mode" = "true" ]; then
 fi
 
 if [ $(id -u) != 0 ]; then
-	echo "fatal! require_root_priv"
+	echo "FATAL! require_root_priv"
+	exit 1
+fi
+
+if [ "x${data_dir}x" != "xx" ] && [ ! -d "$data_dir" ] ; then
+	echo "FATAL! data_dir_not_found ${data_dir}"
 	exit 1
 fi
 
@@ -74,7 +79,7 @@ linux_distro=$(lsb_release -i | cut -d':' -f2 | sed 's/\t//g' | tr '[:upper:]' '
 linux_rel=$(lsb_release -c | cut -d':' -f2 | sed 's/\t//g' | tr '[:upper:]' '[:lower:]')
 
 if [ "$linux_distro" != "ubuntu" ]; then
-	echo "fatal! unsupported_linux_distro ${linux_distro}"
+	echo "FATAL! unsupported_linux_distro ${linux_distro}"
 	exit 1
 fi
 
@@ -116,46 +121,17 @@ dpkg -i /tmp/docker-cli.deb
 dpkg -i /tmp/docker.deb
 rm /tmp/*.deb
 
-if [ "x${data_disk}x" != "xx" ]; then
-	data_partition="${data_disk}1"
-	if [ -z "${data_disk##*[0-9]*}" ]; then
-		# fix /dev/nvmes0 ...
-		echo "info: nvme_data_disk ${data_disk}"
-		data_partition="${data_disk}p1"
-	fi
+echo "info: add_docker_admin ${docker_admin}"
+usermod -aG docker "$docker_admin"
 
-	data_diskname=$(echo "$data_disk" | cut -d'/' -f3)
-	while "true" ; do
-		data_disk_attached=$(lsblk -lnf -o NAME | grep "$data_diskname" || true)
-		if [ "x${data_disk_attached}x" != "xx" ]; then
-			echo "info: data_disk_attached ${data_disk}"
-			break
-		else
-			echo "info: await_data_disk_attach ${data_disk}"
-			sleep 10s
-		fi
-	done
-
-	echo "info: format_data_disk ${data_disk} fs=xfs"
-	(echo n; echo p; echo 1; echo; echo; echo w) | fdisk "$data_disk"
-	mkfs.xfs "$data_partition"
-	xfs_admin -L SSDVOL "$data_partition"
-
-	echo "info: mount_data_disk ${data_disk} mountpoint=/storage/ssd permanent=yes"
-	mkdir -p /storage/ssd
-	mount "$data_partition" /storage/ssd
-	echo 'LABEL=SSDVOL  /storage/ssd  xfs  rw,pquota  0 2' | sed 's/  /\t/g' >> /etc/fstab
-
-	echo "info: move_docker_dir /storage/ssd/docker"
-	echo '{ "graph": "/storage/ssd/docker" }' > /etc/docker/daemon.json
+if [ "x${data_dir}x" != "xx" ]; then
+	echo "info: move_docker_dir ${data_dir}"
+	echo "{ \"graph\": \"${data_dir}\" }" > /etc/docker/daemon.json
 	chmod 600 /etc/docker/daemon.json
 	systemctl daemon-reload
 	systemctl restart docker
 	rm -rf /var/lib/docker
 fi
-
-echo "info: add_docker_admin ${docker_admin}"
-usermod -aG docker "$docker_admin"
 
 echo "info: all_done"
 exit 0
