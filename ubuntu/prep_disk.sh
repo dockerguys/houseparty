@@ -35,7 +35,7 @@ mkfs.xfs "$partition_name"
 xfs_admin -L SSD_VOL "$partition_name"
 mkdir -p "$mount_dir"
 mount "$partition_name" "$mount_dir"
-fstab_line="LABEL=${vol_label}  ${"$mount_dir"}  xfs  rw,pquota  0 2"
+fstab_line="LABEL=${vol_label}  ${mount_dir}  xfs  rw,pquota  0 2"
 fstab_line=$(echo "$fstab_line" | sed 's/  /\t/g')
 echo "$fstab_line" >> /etc/fstab
 df -h "$mount_dir"
