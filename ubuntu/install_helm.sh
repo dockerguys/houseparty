@@ -58,6 +58,11 @@ while [ "x${1}x" != "xx" ] ; do
 	shift
 done
 
+if [ "x${install_bin_path}x" = "xx" ]; then
+	echo "FATAL! arg_mandatory -f|--outfile"
+	exit 1
+fi
+
 if [ "$debug_mode" = "true" ]; then
 	echo "[info] debug_mode"
 	set -ex
