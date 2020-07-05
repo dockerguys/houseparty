@@ -32,7 +32,7 @@ fi
 vol_label=$(echo "$mount_dir" | awk -F/ '{print toupper($NF) "_VOL"}')
 
 mkfs.xfs "$partition_name"
-xfs_admin -L SSD_VOL "$partition_name"
+xfs_admin -L "$vol_label" "$partition_name"
 mkdir -p "$mount_dir"
 mount "$partition_name" "$mount_dir"
 fstab_line="LABEL=${vol_label}  ${mount_dir}  xfs  rw,pquota  0 2"
