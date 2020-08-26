@@ -10,15 +10,11 @@ sudo reboot
 
 Install NFS server
 -----------
-You need to have a dedicated raw disk. Sample script below assumes `/dev/sdb`.
-
-Script will format disk to XFS and mount permanently to path specified by `-m`.
-
-NFS volume is exported as `nfsvol` under the mounted path.
+NFS directory should already exists:
 
 ```bash
 curl -o ./install-nfs-server.sh https://raw.githubusercontent.com/dockerguys/houseparty/master/ubuntu/install-nfs-server.sh
-sudo sh install-nfs-server.sh -d /dev/sdb -m /storage/hdd
+sudo sh install-nfs-server.sh -s /storage/hdd
 ```
 
 Lazy Prep Script
