@@ -2,24 +2,35 @@
 
 set -ex
 
-disk_dev=$1
-mount_dir=$2
+gpt_mode=false
+if [ "$1" = "--gpt" ]; then
+	gpt_mode=true
+	disk_dev=$2
+	mount_dir=$3
+else
+	disk_dev=$1
+	mount_dir=$2
+fi
 
 if [ ! -e "$disk_dev" ]; then
 	echo "FATAL! disk_device_not_found ${disk_dev}"
 	echo ""
-	echo "Usage: $0 <devpath> <mount_dir>"
+	echo "Usage: $0 [--gpt] <devpath> <mount_dir>"
 	exit 1
 fi
 
 if [ ! -d "$mount_dir" ]; then
 	echo "FATAL! mount_dir_not_found ${mount_dir}"
 	echo ""
-	echo "Usage: $0 <devpath> <mount_dir>"
+	echo "Usage: $0 [--gpt] <devpath> <mount_dir>"
 	exit 1
 fi
 
-(echo n; echo p; echo 1; echo; echo; echo w) | fdisk "$disk_dev"
+if [ "$gpt_mode" = "true" ]; then
+	(echo g; echo n; echo 1; echo; echo; echo w) | fdisk "$disk_dev"
+else
+	(echo n; echo p; echo 1; echo; echo; echo w) | fdisk "$disk_dev"
+fi
 sleep 5s
 
 is_nvme=$(echo "$disk_dev" | awk '$1 ~ /[0-9]+$/ { print $1 }')
